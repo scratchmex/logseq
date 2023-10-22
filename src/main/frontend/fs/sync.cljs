@@ -287,8 +287,9 @@
 
 (defn- <request-once [api-name body token]
   (go
-    (let [resp (http/post (str "https://" config/API-DOMAIN "/file-sync/" api-name)
+    (let [resp (http/post (str "http://" config/API-DOMAIN "/file-sync/" api-name) ;; http
                           {:oauth-token token
+                           :content-type "application/json"
                            :body (js/JSON.stringify (clj->js body))
                            :with-credentials? false})]
       {:resp (<! resp)
@@ -339,6 +340,7 @@
   "<user-uuid>/<graph-uuid>/path -> path"
   [path]
   (let [parts (string/split path "/")]
+    (println "strip user graph uuid: " path)
     (if (and (< 2 (count parts))
              (= 36 (count (parts 0)))
              (= 36 (count (parts 1))))
@@ -825,6 +827,7 @@
   [this graph-uuid r]
   (go-loop [[[path metadata] & others] (js->clj r)
             result #{}]
+    (print "building local file metadata")
     (if-not (and path metadata)
       ;; finish
       result
@@ -917,6 +920,7 @@
   (<encrypt-fnames [_ graph-uuid fnames] (go (js->clj (<! (p->c (ipc/ipc "encrypt-fnames" graph-uuid fnames))))))
   (<decrypt-fnames [_ graph-uuid fnames] (go
                                            (let [r (<! (p->c (ipc/ipc "decrypt-fnames" graph-uuid fnames)))]
+                                             (println "(client-rsapi) descrypting fnames" fnames)
                                              (if (instance? ExceptionInfo r)
                                                (ex-info "decrypt-failed" {:fnames fnames} (ex-cause r))
                                                (js->clj r)))))
@@ -2712,6 +2716,7 @@
             es->paths-xf (comp
                           (map #(relative-path %))
                           (remove ignored?))]
+        (println :debug :sync-local->remote "call" type es->paths-xf)
         (go
           (let [es*   (<! (<filter-checksum-not-consistent graph-uuid es))
                 _     (when (not= (count es*) (count es))
@@ -2730,7 +2735,7 @@
                         (case type
                           ("add" "change")
                           (<with-pause (<update-remote-files rsapi graph-uuid base-path paths @*txid) *paused)
-
+                          ;; for some reason when opening the app it triggers an event even though the file didn't changed
                           "unlink"
                           (<with-pause (<delete-remote-files rsapi graph-uuid base-path paths @*txid) *paused)))
                 _               (swap! *sync-state sync-state--add-current-local->remote-files paths)
@@ -3356,7 +3361,7 @@
 (defn- <connectivity-testing
   []
   (go
-    (let [api-url (str "https://" config/API-DOMAIN "/logseq/version")
+    (let [api-url (str "http://" config/API-DOMAIN "/logseq/version") ;; http
           r1 (http/get api-url {:with-credentials? false})
           r2 (http/get config/CONNECTIVITY-TESTING-S3-URL {:with-credentials? false})
           r1* (<! r1)
@@ -3531,6 +3536,8 @@
   (let [{{graph-uuid :graph-uuid} :data} (<! re-remote->local-full-sync-chan)
         {:keys [current-syncing-graph-uuid]}
         (state/get-file-sync-state graph-uuid)]
+    (<! (timeout 1000))
+    ;; avoid trying too fast
     (when (= graph-uuid current-syncing-graph-uuid)
       (offer! remote->local-full-sync-chan true))
     (recur)))
@@ -3541,6 +3548,8 @@
 (go-loop []
   (let [{{graph-uuid :graph-uuid} :data} (<! re-local->remote-full-sync-chan)
         {:keys [current-syncing-graph-uuid]} (state/get-file-sync-state graph-uuid)]
+    (<! (timeout 1000))
+    ;; avoid trying too fast
     (when (= graph-uuid current-syncing-graph-uuid)
       (offer! full-sync-chan true))
     (recur)))

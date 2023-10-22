@@ -119,7 +119,7 @@
 (defn- <refresh-tokens
   "return refreshed id-token, access-token"
   [refresh-token]
-  (http/post (str "https://" config/OAUTH-DOMAIN "/oauth2/token")
+  (http/post (str "http://" config/OAUTH-DOMAIN "/oauth2/token")  ;; http
              {:form-params {:grant_type "refresh_token"
                             :client_id config/COGNITO-CLIENT-ID
                             :refresh_token refresh-token}}))

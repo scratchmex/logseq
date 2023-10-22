@@ -27,11 +27,12 @@
 (goog-define TEST false)
 (def test? TEST)
 
-(goog-define ENABLE-FILE-SYNC-PRODUCTION false)
+(def ENABLE-FILE-SYNC-PRODUCTION false)
+;; using goog-define evaluates as true
 
 ;; this is a feature flag to enable the account tab
 ;; when it launches (when pro plan launches) it should be removed
-(def ENABLE-SETTINGS-ACCOUNT-TAB false)
+(def ENABLE-SETTINGS-ACCOUNT-TAB true)
 
 (if ENABLE-FILE-SYNC-PRODUCTION
   (do (def FILE-SYNC-PROD? true)
@@ -60,6 +61,18 @@
       (def IDENTITY-POOL-ID "us-east-2:cc7d2ad3-84d0-4faf-98fe-628f6b52c0a5")
       (def OAUTH-DOMAIN "logseq-test2.auth.us-east-2.amazoncognito.com")
       (def CONNECTIVITY-TESTING-S3-URL "https://logseq-connectivity-testing-prod.s3.us-east-1.amazonaws.com/logseq-connectivity-testing")))
+
+(when (state/sync-override-endpoint-enabled?)
+  (let [endpoint (state/sync-override-endpoint)]
+    (def API-DOMAIN endpoint)
+    (def WS-URL (util/format "ws://%s/file-sync?graphuuid=%%s" endpoint))
+    (def COGNITO-IDP endpoint)
+    ;; (def COGNITO-CLIENT-ID "-")
+    ;; (def REGION "-")
+    ;; (def USER-POOL-ID "-")
+    ;; (def IDENTITY-POOL-ID "-")
+    (def OAUTH-DOMAIN endpoint))
+  )
 
 ;; Feature flags
 ;; =============

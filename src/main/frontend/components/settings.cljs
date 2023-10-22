@@ -728,6 +728,7 @@
      (enable-all-pages-public-row t enable-all-pages-public?)
      (auto-push-row t current-repo enable-git-auto-push?)]))
 
+
 (rum/defc settings-git
   []
   [:div.panel-wrap
@@ -765,10 +766,9 @@
      (when (util/electron?) (auto-chmod-row t))
      (when (and (util/electron?) (not (config/demo-graph? current-repo))) (filename-format-row))
      (clear-cache-row t)
-
      (ui/admonition
-       :warning
-       [:p (t :settings-page/clear-cache-warning)])]))
+      :warning
+      [:p (t :settings-page/clear-cache-warning)])]))
 
 (rum/defc sync-enabled-switcher
   [enabled?]
@@ -800,6 +800,52 @@
                      :interactive true
                      :disabled    false}
                     (svg/info))}))
+
+(rum/defc sync-override-endpoint-switch < rum/reactive [enabled?]
+  (toggle "enable_override_sync_endpoint"
+          "Override sync endpoint"
+          enabled?
+          (fn [] (state/set-sync-override-endpoint-enabled! (not enabled?))))
+    ;; (ipc/ipc :userAppCfgs :git/disable-auto-commit? enabled?)
+  )
+
+(defn update-sync-override-endpoint-url [event]
+  ((state/set-sync-override-endpoint! (util/evalue event)) 
+   (user-handler/logout)
+   (user-handler/login-callback {:idToken {:jwtToken "<id-token>"} 
+                                 :accessToken {:jwtToken "<access-token>"} 
+                                 :refreshToken {:token "<refresh-token>"} })))
+
+(rum/defcs sync-override-endpoint-url < rum/reactive < (rum/local false ::changed?) [state]
+  (let [changed? (::changed? state)]
+  [:div.it.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-center
+   [:label.block.text-sm.font-medium.leading-5.opacity-70
+    {:for "sync-endpoint"}
+    "Custom sync endpoint"]
+   [:div.mt-1.sm:mt-0.sm:col-span-2
+    [:div.flex.items-center.gap-2
+     [:div.max-w-lg.rounded-md.sm:max-w-xs
+      [:input#sync-endpoint.form-input.is-small.transition.duration-150.ease-in-out
+       {:default-value (state/sync-override-endpoint)
+        :placeholder   "logseq-sync-api.example.com"
+        :on-blur       (fn [e] ((update-sync-override-endpoint-url e) (reset! changed? true)))
+        :on-key-press  (fn [e] (when (= "Enter" (util/ekey e)) ((update-sync-override-endpoint-url e) (js/logseq.api.relaunch))))}]]
+      (when @changed?
+        (ui/button 
+         (t :plugin/restart) 
+         {:on-click #(js/logseq.api.relaunch) 
+          :small? true :intent "logseq"}))]
+    ]]))
+
+(rum/defc settings-sync < rum/reactive []
+  (let [override-enabled? (state/sync-override-endpoint-enabled?)
+        enable-sync-diff-merge? (state/enable-sync-diff-merge?)]
+    [(sync-diff-merge-switcher-row enable-sync-diff-merge?)
+     (sync-override-endpoint-switch override-enabled?)
+     (when override-enabled? [(sync-override-endpoint-url)
+                              (ui/admonition :warning [:p "You need to restart the app after updating the sync endpoint settings."])
+                              ])
+     ]))
 
 (rum/defc whiteboards-enabled-switcher
   [enabled?]
@@ -1010,7 +1056,6 @@
         enable-journals? (state/enable-journals? current-repo)
         enable-flashcards? (state/enable-flashcards? current-repo)
         enable-sync? (state/enable-sync?)
-        enable-sync-diff-merge? (state/enable-sync-diff-merge?)
         enable-whiteboards? (state/enable-whiteboards? current-repo)
         logged-in? (user-handler/logged-in?)]
     [:div.panel-wrap.is-features.mb-8
@@ -1060,8 +1105,7 @@
         [:div.flex.flex-col.gap-4
          {:class (when-not user-handler/alpha-or-beta-user? "opacity-50 pointer-events-none cursor-not-allowed")}
          (sync-switcher-row enable-sync?)
-         (when enable-sync?
-           (sync-diff-merge-switcher-row enable-sync-diff-merge?))
+         (when enable-sync? (settings-sync))
          [:div.text-sm
           (t :settings-page/sync-desc-1)
           [:a.mx-1 {:href "https://blog.logseq.com/how-to-setup-and-use-logseq-sync/"

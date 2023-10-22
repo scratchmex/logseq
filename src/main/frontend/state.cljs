@@ -284,6 +284,10 @@
      :file-sync/graph-state                 {:current-graph-uuid nil}
                                              ;; graph-uuid -> ...
 
+     :file-sync/override-endpoint-enabled   (storage/get :file-sync/override-endpoint-enabled)
+     :file-sync/override-endpoint           (storage/get :file-sync/override-endpoint)
+
+
      :user/info                             {:UserGroups (storage/get :user-groups)}
      :encryption/graph-parsing?             false
 
@@ -1929,6 +1933,20 @@ Similar to re-frame subscriptions"
 (defn get-git-auto-commit-enabled?
   []
   (false? (sub [:electron/user-cfgs :git/disable-auto-commit?])))
+
+(defn sync-override-endpoint-enabled? []
+   (sub :file-sync/override-endpoint-enabled))
+
+(defn set-sync-override-endpoint-enabled! [value]
+    (set-state! :file-sync/override-endpoint-enabled value)
+    (storage/set :file-sync/override-endpoint-enabled value))
+
+(defn sync-override-endpoint []
+  (sub :file-sync/override-endpoint))
+
+(defn set-sync-override-endpoint! [value]
+  (set-state! :file-sync/override-endpoint value)
+  (storage/set :file-sync/override-endpoint value))
 
 (defn set-last-key-code!
   [key-code]

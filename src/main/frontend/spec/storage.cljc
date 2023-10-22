@@ -26,6 +26,8 @@
 (s/def :copy/export-block-text-indent-style string?)
 (s/def :copy/export-block-text-remove-options set?)
 (s/def :copy/export-block-text-other-options map?)
+(s/def :file-sync/override-endpoint-enabled boolean?)
+(s/def :file-sync/override-endpoint string?)
 ;; Dynamic keys which aren't as easily validated:
 ;; :ls-pdf-last-page-*
 ;; :ls-js-allowed-*
