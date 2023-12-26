@@ -154,7 +154,7 @@ const common = {
   }
 }
 
-exports.electron = () => {
+exports.electron = (cb) => {
   if (!fs.existsSync(path.join(outputPath, 'node_modules'))) {
     cp.execSync('yarn', {
       cwd: outputPath,
@@ -162,9 +162,16 @@ exports.electron = () => {
     })
   }
 
-  cp.execSync('yarn electron:dev', {
+  let proc = cp.spawn('yarn', ['electron:dev'], {
     cwd: outputPath,
-    stdio: 'inherit'
+    stdio: ["pipe", "inherit", "inherit"],
+    shell: true,
+  })
+  proc.on("close", () => cb())
+
+  gulp.watch(["static/node_modules/@logseq/rsapi*"]).on("change", () => {
+    console.log("relaunching electron")
+    proc.stdin.write("rs\n")
   })
 }
 
